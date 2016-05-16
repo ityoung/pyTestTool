@@ -7,4 +7,4 @@
 
 ####Progress:
 1. done
-2. save is easy, while show is hard for blocking. try wx.CallAfter() and learning... (5-16)
+2. save is easy, while show is hard for blocking. ~~try wx.CallAfter()~~try **anonymous pipe** and learning... (5-16)
