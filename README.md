@@ -7,4 +7,6 @@
 
 ####Progress:
 1. done
-2. save is easy, while show is hard for blocking. ~~try wx.CallAfter() and pubsub~~ try **anonymous pipe** and learning... (5-16)
+2. save is easy, while show is hard for blocking. ~~try wx.CallAfter() and pubsub(complex and not much work)~~ ~~try **anonymous pipe**(work better on non-block console,and still can't figure out how to make it work on block console)~~ 
+   use subprocess to make GUI run smoothly. (5-16)
+3. appium
