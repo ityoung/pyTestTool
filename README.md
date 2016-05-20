@@ -11,6 +11,7 @@
 4. run script
 5. take snapshot and catch log when error
 6. show test result when finished
+___
 
 ####Progress:
 1. __done__(5-16)<br>use multithread to check device back end(5-19)
