@@ -3,7 +3,31 @@ import subprocess
 import wx
 import os
 import re
+import time
 
+class updateScreenThread(threading.Thread):
+    def __init__(self, window):
+        threading.Thread.__init__(self)
+        self.window = window
+        self.timeToQuit = threading.Event()
+        self.timeToQuit.clear()
+        self.cmd1 = "adb shell /system/bin/screencap -p /sdcard/sstemp.png"
+        self.cmd2 = "adb pull /sdcard/sstemp.png F://"
+        image2 = wx.Image("F://sstemp.png", wx.BITMAP_TYPE_PNG, index=-1)
+        self.w = image2.GetWidth()/4
+        self.h = image2.GetHeight()/4
+    def stop(self):
+        self.timeToQuit.set()
+    def run(self):
+        while True:
+            os.system(self.cmd1)
+            os.system(self.cmd2)
+            image2 = wx.Image("F://sstemp.png", wx.BITMAP_TYPE_PNG, index=-1)
+            image = image2.Scale(self.w,self.h)
+            self.bmp = wx.StaticBitmap(self.window.panel, -1, wx.BitmapFromImage(image), pos=(10, 80), size=(self.w,self.h+10))
+            if self.timeToQuit.isSet():
+                break
+            
 class showLogThread(threading.Thread):
     def __init__(self, window, cmd):
         threading.Thread.__init__(self)
@@ -53,7 +77,7 @@ class checkDeviceThread(threading.Thread):
          
 class TestTool(object):
     def __init__(self):
-        self.wndSize = wx.Size(550,400)
+        self.wndSize = wx.Size(650,600)
         thread = checkDeviceThread(self)
         thread.setDaemon(True)      #terminate child thread when main thread ends.
         thread.start()              #check devices until die
@@ -62,35 +86,48 @@ class TestTool(object):
         self.isconn = False
         self.listenDevice = True
         self.packageName =""
+        self.isUpdateScreen = False
 
     def show(self):
         self.frame = wx.Frame(None,title="testTool", size=self.wndSize)  
         panel = wx.Panel(self.frame, 1)
+        self.panel = panel
         
-        #-------------- button ---------------
-        #self.connButton = wx.Button(panel, -1, "show device info", pos=(10, 10))
-        #self.connButton.SetDefault()
-        self.logClearBtn = wx.Button(panel, -1, "logcat clear", pos = (220, 10))
+        #-------------- button -----------------
+        self.logClearBtn = wx.Button(panel, -1, "logcat clear", pos = (320, 10))
         self.logClearBtn.SetDefault()
-        self.logCatAllBtn = wx.Button(panel, -1, "logcat all", pos = (320, 10))
-        self.logCatSelectBtn = wx.Button(panel, -1, "logcat select", pos = (420, 10))
+        self.logCatAllBtn = wx.Button(panel, -1, "logcat all", pos = (420, 10))
+        self.logCatSelectBtn = wx.Button(panel, -1, "logcat select", pos = (520, 10))
+        self.listenScreenBtn = wx.Button(panel, -1, "show screen\nReal-tiem", pos = (220,10), size=(80,60))
         
-        #self.logClearBtn.Disable()
-        #self.logCatAllBtn.Disable()
-        #self.logCatSelectBtn.Disable()
+        self.logClearBtn.Disable()
+        self.logCatAllBtn.Disable()
+        self.logCatSelectBtn.Disable()
         
         #-------------- text view ---------------
-        self.deviceInfoText = wx.TextCtrl(panel, -1, pos=(10,50),size=(200,70),style=wx.TE_MULTILINE|wx.TE_NO_VSCROLL)
+        self.deviceInfoText = wx.TextCtrl(panel, -1, pos=(10,10),size=(200,70),style=wx.TE_MULTILINE|wx.TE_NO_VSCROLL)
         self.deviceInfoText.SetEditable(False)
-        self.logMessageText = wx.TextCtrl(panel, -1, pos = (220, 50), size=(300,300),style=wx.TE_MULTILINE|wx.TE_LINEWRAP)
+        self.logMessageText = wx.TextCtrl(panel, -1, pos = (320, 50), size=(300,500),style=wx.TE_MULTILINE|wx.TE_LINEWRAP)
         
-        #-------------- bind -------------
-        #self.connButton.Bind(wx.EVT_BUTTON,self.clickConn)
+        #-------------- bind --------------------
         self.logClearBtn.Bind(wx.EVT_BUTTON, self.logClear)
         self.logCatAllBtn.Bind(wx.EVT_BUTTON, self.logCatAll)
         self.logCatSelectBtn.Bind(wx.EVT_BUTTON, self.logCatSelect)
+        self.listenScreenBtn.Bind(wx.EVT_BUTTON, self.listenScreen)
         
         self.frame.Show()
+        
+    def listenScreen(self,evt):
+        if self.isUpdateScreen ==False:
+            self.listenScreenBtn.SetLabel("Stop Flush")
+            self.isUpdateScreen = True
+            self.fupdateScreen = updateScreenThread(self)
+            self.fupdateScreen.setDaemon(True)
+            self.fupdateScreen.start()
+        else:
+            self.listenScreenBtn.SetLabel("show screen\nReal-tiem")
+            self.isUpdateScreen = False
+            self.fupdateScreen.stop()
     
     def LogMessage(self):
         if self.isconn == True and self.listenDevice == True:
