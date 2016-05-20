@@ -2,8 +2,8 @@
 ######page 1:
 1. check connected devices
 2. logcat, ~~show on screen in-time and~~ save to PC
-3. real-time transmission device's image<br>
-######page 2:<br>
+3. real-time transmission device's image
+######page 2:
 1. start appium service(check)
 2. show appium logmessage
 3. load python test script
