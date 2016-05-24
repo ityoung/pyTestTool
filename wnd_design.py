@@ -1,9 +1,35 @@
 import wx
+import wx.html
 import os
 import re
 import threading
 import subprocess
 
+class startAppiumThread(threading.Thread):
+    def __init__(self, window):
+        threading.Thread.__init__(self)
+        self.window = window
+        self.timeToQuit = threading.Event()
+        self.timeToQuit.clear()
+        self.startCmd = '"G:/Appium/node.exe" \"G:/Appium/node_modules/appium/bin/Appium.js\" --no-reset --local-timezone'
+    def stop(self):
+        self.fstart.terminate()
+        os.system("taskkill /f /t /im node.exe")
+        self.timeToQuit.set()
+    def run(self):
+        self.window.appiumLog.Clear()
+        self.window.appiumLog.SetValue("running...")
+        try:
+            self.fstart = subprocess.Popen(self.startCmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, creationflags=0x08)
+        except:
+            os.system("taskkill /f /t /im node.exe")
+            self.fstart = subprocess.Popen(self.startCmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, creationflags=0x08)
+        while True:
+            output = self.fstart.stdout.readline()
+            self.window.appiumLog.AppendText(output)
+            if self.timeToQuit.isSet():
+                break
+            
 class checkDeviceThread(threading.Thread):
     def __init__(self, window):
         threading.Thread.__init__(self)
@@ -41,7 +67,6 @@ class showLogThread(threading.Thread):
     def run(self):
         self.window.logMessageText.Clear()
         self.flogcat = subprocess.Popen(self.cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, creationflags=0x08)
-        i = 1
         while True:
             output = self.flogcat.stdout.readline()
             if self.window.packageName!="":
@@ -49,7 +74,6 @@ class showLogThread(threading.Thread):
                     self.window.logMessageText.AppendText(output)
             else:
                 self.window.logMessageText.AppendText(output)
-                print output
             if self.timeToQuit.isSet():
                 break
 
@@ -115,6 +139,7 @@ class mainFrame(wx.Frame):
 #--------------- tab ------------------------
         notebook = wx.Notebook(self.panel2)
         notebook.AddPage(logTool(notebook), "logTool")
+        notebook.AddPage(appiumTool(notebook), "appiumTool")
         p_sizer = wx.BoxSizer(wx.HORIZONTAL)
         p_sizer.Add(notebook, 1, wx.EXPAND | wx.ALL, 7) 
         self.panel2.SetSizer(p_sizer)
@@ -147,6 +172,75 @@ class mainFrame(wx.Frame):
             self.isUpdateScreen = False
             self.fupdateScreen.stop()
      
+class appiumTool(wx.Panel):
+    def __init__(self, parent):
+        wx.Panel.__init__(self, parent)
+        self.appiumIsStart = False
+        self.scriptPath=""
+        
+#----------------- btn -----------------
+        self.startAppiumBtn = wx.Button(self, -1, "start appium")
+        self.startAppiumBtn.SetDefault()
+        self.loadScriptBtn = wx.Button(self, -1, "load script")
+        self.runScriptBtn = wx.Button(self, -1, "run script")
+#----------------- text view ----------------         
+        self.appiumLog = wx.TextCtrl(self, -1, size=(500,200), style=wx.TE_MULTILINE)
+        self.scriptPathText = wx.TextCtrl(self, -1, size=(180,28))
+#----------------- html ----------------
+        self.html = wx.html.HtmlWindow(self,size=(500, 200), pos=(600, 800))
+        self.html.SetPage(
+                    "Here is some"
+                    "loaded from")
+#----------------- sizer ----------------
+        btn_sizer= wx.BoxSizer(wx.HORIZONTAL)
+        btn_sizer.Add(self.startAppiumBtn, 0, 0)
+        btn_sizer.Add(self.loadScriptBtn, 0, 0)
+        btn_sizer.Add(self.scriptPathText, 0, 0)
+        btn_sizer.Add(self.runScriptBtn, 0, 0)
+        
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        sizer.Add(btn_sizer, 0, 0)
+        sizer.Add(self.appiumLog, 0, 0)
+        #sizer.Add(self.html, 0, 0)
+        self.SetSizer(sizer)
+#----------------- bind ----------------
+        self.startAppiumBtn.Bind(wx.EVT_BUTTON, self.starAppiumServer)
+        self.loadScriptBtn.Bind(wx.EVT_BUTTON, self.selectScript)
+        self.runScriptBtn.Bind(wx.EVT_BUTTON, self.runScript)
+        
+    def starAppiumServer(self, evt):
+        if self.appiumIsStart == False:
+            self.fstart = startAppiumThread(self)
+            self.fstart.setDaemon(True)
+            self.fstart.start()
+            self.startAppiumBtn.SetLabel("stop appium")
+            self.appiumIsStart = True
+        else:
+            self.startAppiumBtn.SetLabel("start appium")
+            self.fstart.stop()
+            self.appiumIsStart = False
+        
+    def selectScript(self, evt):
+        scriptFD = wx.FileDialog(self, message="choose a test script", defaultDir="F:/")
+        if scriptFD.ShowModal()==wx.ID_OK:
+            self.scriptPath = scriptFD.GetPath()
+            self.scriptPathText.SetValue(self.scriptPath)
+        else:
+            pass
+        scriptFD.Destroy()
+        
+    def runScript(self, evt):
+        scriptPath = self.scriptPathText.GetValue()
+        if scriptPath!="":
+            path = scriptPath.split("/")
+            scriptpath = scriptPath.strip(path[-1])
+            import sys
+            sys.path.append(path)
+            execfile(scriptPath)
+        else:
+            dlg = wx.MessageDialog(None,"warning!","Empty Path!",wx.OK|wx.ICON_WARNING)
+            dlg.ShowModal()
+        
 class logTool(wx.Panel):
     def __init__(self, parent):
         wx.Panel.__init__(self, parent)
@@ -211,7 +305,8 @@ class logTool(wx.Panel):
             self.logMessageText.Clear()
             getpackagename = "adb shell \"dumpsys window windows | grep -E 'mFocusedApp'\""
             result = os.popen(getpackagename).readlines()
-            cur_pkg = re.findall('com.*/', result[0])
+            cur_pkg = re.findall('u0 .*/', result[0])
+            cur_pkg[0] = cur_pkg[0].strip('u0 ')
             cur_pkg[0] = cur_pkg[0].strip('/')
             dlg = wx.TextEntryDialog(None, "Entry the pakage name(or key words) to cat log: ",
                     'pakageName', cur_pkg[0])
