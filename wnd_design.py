@@ -184,13 +184,15 @@ class appiumTool(wx.Panel):
         self.loadScriptBtn = wx.Button(self, -1, "load script")
         self.runScriptBtn = wx.Button(self, -1, "run script")
 #----------------- text view ----------------         
-        self.appiumLog = wx.TextCtrl(self, -1, size=(500,200), style=wx.TE_MULTILINE)
+        self.appiumLog = wx.TextCtrl(self, -1, size=(700,200), style=wx.TE_MULTILINE)
         self.scriptPathText = wx.TextCtrl(self, -1, size=(180,28))
 #----------------- html ----------------
-        self.html = wx.html.HtmlWindow(self,size=(500, 200), pos=(600, 800))
-        self.html.SetPage(
-                    "Here is some"
-                    "loaded from")
+        self.html = wx.html.HtmlWindow(self,size=(700, 600))
+        if "gtk2" in wx.PlatformInfo:
+            self.html.SetStandardFonts()
+        self.html.LoadFile(r"F:\mhome\mhome_test\test_result.html")
+#         self.html.LoadPage("http://www.wxpython.org/docs/api/wx.html.HtmlWindow-class.html")
+#         self.html.SetBorders(20)
 #----------------- sizer ----------------
         btn_sizer= wx.BoxSizer(wx.HORIZONTAL)
         btn_sizer.Add(self.startAppiumBtn, 0, 0)
@@ -201,7 +203,7 @@ class appiumTool(wx.Panel):
         sizer = wx.BoxSizer(wx.VERTICAL)
         sizer.Add(btn_sizer, 0, 0)
         sizer.Add(self.appiumLog, 0, 0)
-        #sizer.Add(self.html, 0, 0)
+        sizer.Add(self.html, 0, 0)
         self.SetSizer(sizer)
 #----------------- bind ----------------
         self.startAppiumBtn.Bind(wx.EVT_BUTTON, self.starAppiumServer)
@@ -262,7 +264,7 @@ class logTool(wx.Panel):
 #         self.logCatSelectBtn.Disable()
          
         #-------------- text view ---------------
-        self.logMessageText = wx.TextCtrl(self, -1, size=(300,500),style=wx.TE_MULTILINE|wx.TE_LINEWRAP)
+        self.logMessageText = wx.TextCtrl(self, -1, size=(700,500),style=wx.TE_MULTILINE|wx.TE_LINEWRAP)
         
         sizer = wx.BoxSizer(wx.VERTICAL)
         sizer.Add(btn_sizer, 0, 0)
