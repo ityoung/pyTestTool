@@ -4,6 +4,66 @@ import os
 import re
 import threading
 import subprocess
+import time
+
+class listenTouchThread(threading.Thread):
+    def __init__(self, window):
+        threading.Thread.__init__(self)
+        self.window = window
+        self.timeToQuit = threading.Event()
+        self.timeToQuit.clear()
+        self.cmd = "adb shell getevent"
+    def stop(self):
+        self.fstart.terminate()
+        self.timeToQuit.set()
+    def hex2dec(self, string_num):
+        return int(string_num.upper(), 16)
+    def run(self):
+        self.window.recordedScript.Clear()
+        self.fstart = subprocess.Popen(self.cmd, stdout = subprocess.PIPE)
+        while True:
+            read = self.fstart.stdout.readline()
+            if " 0039 " in read:
+                time1 = time.time()
+                read = self.fstart.stdout.readline()
+                while " 0035 " not in read:
+                    read = self.fstart.stdout.readline()
+                x_start = read.split()[3]
+                read = self.fstart.stdout.readline()
+                if " 0036 " in read:
+                    y_start = read.split()[3]
+                    read = self.fstart.stdout.readline()
+        #             print hex2dec('0000021b')
+                x_end = x_start
+                y_end = y_start
+                while " 0039 " not in read:
+                    if " 0035 " in read:
+                        x_end = read.split()[3]
+                    if " 0036 " in read:
+                        y_end = read.split()[3]
+                    read = self.fstart.stdout.readline()
+                time2 = time.time()
+                self.window.recordedScript.AppendText(self.recorde(self.window.recordeLanguage, \
+                                                       int((time2-time1)*1000),\
+                                                       self.hex2dec(x_start), \
+                                                       self.hex2dec(y_start), \
+                                                       self.hex2dec(x_end), \
+                                                       self.hex2dec(y_end))+"\n")
+#                 self.window.recordedScript.AppendText('\n'+self.hex2dec(x_start)\
+#                                                       +' '+self.hex2dec(y_start)\
+#                                                       +' '+self.hex2dec(x_end)\
+#                                                       +' '+self.hex2dec(y_end)+'\n')
+#                 print int((time2-time1)*1000)
+                #self.window.recordedScript.AppendText(str(('%.3f'%(time2-time1))*1000))
+            if self.timeToQuit.isSet():
+                break
+    def recorde(self, language, time, \
+                x_start, y_start, x_end, y_end):
+        if abs(x_start-x_end)<50 and abs(y_end-y_start)<50 and time<492:
+            operation = 'tap'
+            return 'adb shell input '+operation+" "+str(x_end)+" "+str(y_end)
+        return 'adb shell input swipe '+str(x_start)+" "+\
+            str(y_start)+" "+str(x_end)+" "+str(y_end)+' '+str(time)
 
 class startAppiumThread(threading.Thread):
     def __init__(self, window):
@@ -140,6 +200,7 @@ class mainFrame(wx.Frame):
         notebook = wx.Notebook(self.panel2)
         notebook.AddPage(logTool(notebook), "logTool")
         notebook.AddPage(appiumTool(notebook), "appiumTool")
+        notebook.AddPage(recordeTool(notebook), "recordeTool")
         p_sizer = wx.BoxSizer(wx.HORIZONTAL)
         p_sizer.Add(notebook, 1, wx.EXPAND | wx.ALL, 7) 
         self.panel2.SetSizer(p_sizer)
@@ -172,6 +233,51 @@ class mainFrame(wx.Frame):
             self.isUpdateScreen = False
             self.fupdateScreen.stop()
      
+class recordeTool(wx.Panel):
+    def __init__(self, parent):
+        wx.Panel.__init__(self, parent)
+        self.listen = False
+        #------------- BTN ------------
+        self.recordeBtn = wx.Button(self, -1, "start recorde")
+        
+        #------------- List -----------
+        languages = ['CMD', 'Appium']
+        self.choice = wx.Choice(self, -1, choices = languages)
+        self.choice.SetStringSelection("CMD")
+        self.recordeLanguage = 'CMD'
+        
+        #------------- Text -----------
+        self.recordedScript = wx.TextCtrl(self, -1, size=(700,200),style=wx.TE_MULTILINE)
+        
+        #------------- Bind -----------
+        self.recordeBtn.Bind(wx.EVT_BUTTON, self.recorde)
+        self.choice.Bind(wx.EVT_CHOICE, self.languageChoice)
+        
+        #------------- Sizer ----------
+        btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        btn_sizer.Add(self.recordeBtn, 0, 0)
+        btn_sizer.Add(self.choice, 0, flag=wx.TOP, border=3)
+        
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        sizer.Add(btn_sizer, 0, 0)
+        sizer.Add(self.recordedScript, 0, 0)
+        self.SetSizer(sizer)
+        
+    def recorde(self, evt):
+        if self.listen == False:
+            self.frecorde = listenTouchThread(self)
+            self.frecorde.setDaemon(True)
+            self.frecorde.start()
+            self.listen = True
+            self.recordeBtn.SetLabel("stop recorde")
+        else:
+            self.frecorde.stop()
+            self.listen = False
+            self.recordeBtn.SetLabel("start recorde")
+     
+    def languageChoice(self, evt):
+        self.recordeLanguage = self.choice.GetString(self.choice.GetSelection())
+#         print self.recordeLaguage
 class appiumTool(wx.Panel):
     def __init__(self, parent):
         wx.Panel.__init__(self, parent)
@@ -185,6 +291,7 @@ class appiumTool(wx.Panel):
         self.runScriptBtn = wx.Button(self, -1, "run script")
 #----------------- text view ----------------         
         self.appiumLog = wx.TextCtrl(self, -1, size=(700,200), style=wx.TE_MULTILINE)
+        self.scriptPathStaticText = wx.StaticText(self, -1, "script path: ",style=wx.EXPAND)
         self.scriptPathText = wx.TextCtrl(self, -1, size=(180,28))
 #----------------- html ----------------
         self.html = wx.html.HtmlWindow(self,size=(700, 600))
@@ -197,6 +304,7 @@ class appiumTool(wx.Panel):
         btn_sizer= wx.BoxSizer(wx.HORIZONTAL)
         btn_sizer.Add(self.startAppiumBtn, 0, 0)
         btn_sizer.Add(self.loadScriptBtn, 0, 0)
+        btn_sizer.Add(self.scriptPathStaticText, 0, wx.TOP, border=8)
         btn_sizer.Add(self.scriptPathText, 0, 0)
         btn_sizer.Add(self.runScriptBtn, 0, 0)
         

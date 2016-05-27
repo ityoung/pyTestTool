@@ -11,8 +11,23 @@
 4. run script
 5. show test result when finished
 
-######page 3 - **performance testing**:
-to be continue...
+######page 3 - **recorde/playback**:
+1. get x/y coordinate and time interval
+2. show on screen
+3. save as A appropriate format file
+4. interprete the operation file to a certain language
+5. playback
+
+######page 4 - **performance testing**:
+1. get CPU info
+2. get Memory info
+3. get flow(u/d) info
+4. get current app packagename
+5. enter packagename and do 123
+6. draw broken line graph
+7. auto-analysis the result
+8. test APP run-up time
+
 ___
 
 ####Progress:
@@ -46,4 +61,19 @@ ___
    * use 'os.system()', but shows many consoles(caused by appium calling adb.exe) and still cannot figure out how to solve this.(5-24)<br>
 5.
    * finished with "wx.html.HtmlWindow", however, that module cannot parse CSS/JS. Maybe I should find some more effective method when whole work done.(5-25)
+
+######page 3 - **recorde/playback**:
+1. 
+   * get x/y coordinate with command 'adb shell getevent'(5-26)
+2. 
+   * show on screen(5-26)
+   * still need some change.
+3. 
+   * save as A appropriate format file unfinished.
+4. 
+   * interprete the operation file to "CMD"(5-27)
+   * need to interprete it to run with appium.
+5. 
+   * playback unfinished and can be postponed.
+
    
