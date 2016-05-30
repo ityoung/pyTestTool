@@ -62,7 +62,7 @@ ___
 5.
    * finished with "wx.html.HtmlWindow", however, that module cannot parse CSS/JS. Maybe I should find some more effective method when whole work done.(5-25)
 
-######page 3 - **recorde/playback**:
+######page 3:
 1. 
    * get x/y coordinate with command 'adb shell getevent'(5-26)
 2. 
@@ -76,4 +76,9 @@ ___
 5. 
    * playback unfinished and can be postponed.
 
-   
+######page 4:
+1. 
+   * get CPU info(5-30)
+2. 
+   * get Memory info(5-30)
+
