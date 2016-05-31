@@ -5,6 +5,7 @@ import re
 import threading
 import subprocess
 import time
+import wx.lib.plot as plot
 
 class monitorPerformanceThread(threading.Thread):
     def __init__(self, window):
@@ -14,28 +15,66 @@ class monitorPerformanceThread(threading.Thread):
         self.timeToQuit  = threading.Event()
         self.timeToQuit.clear()
         self.cmd = "adb shell \"top |grep "
+        self.kindsNum = 0
+        self.kvActivities = {}
+        self.CPUData = [[],[],[],[],[],[],[]]
+        self.MEMData = [[],[],[],[],[],[],[]]
         
     def stop(self):
         self.fstart.terminate()
         self.timeToQuit.set()
         
     def run(self):
-        print self.cmd+self.packagename+'"'
-        self.window.cpuUtilization.Clear()
-        self.window.memUtilization.Clear()
+        cmd = 'adb shell "top -n 1 |grep "'+self.packagename+'"'
+        kindsNum = os.popen(cmd).readlines()
+        self.kindsNum=len(kindsNum)
+#         self.window.cpuUtilization.Clear()
+#         self.window.memUtilization.Clear()
         self.fstart = subprocess.Popen(self.cmd+self.packagename+'"', 
                                        stdin=subprocess.PIPE, 
                                        stdout=subprocess.PIPE, 
                                        stderr=subprocess.PIPE, 
                                        creationflags=0x08)
+        i = 0
+        times = 0
+        flag = 0
         while True:
             output = self.fstart.stdout.readline()
             opArray = output.split()
-            print opArray
-            self.window.cpuUtilization.AppendText(opArray[2]+'\t'+opArray[-1]+"\n")
-            self.window.memUtilization.AppendText("VSS:"+opArray[5]+'\tRSS:'+opArray[6]+'\t'+opArray[-1]+"\n")
+            if flag<self.kindsNum:
+                self.kvActivities[opArray[-1]] = flag
+                flag+=1
+            self.CPUData[self.kvActivities[opArray[-1]]].append(\
+                                        [i,opArray[2].strip("%")])
+            self.MEMData[self.kvActivities[opArray[-1]]].append(\
+                                        [i,opArray[6].strip("K")])
+            self.drawCPUPlot()
+            self.drawMEMPlot()
+#             self.window.cpuUtilization.AppendText(opArray[2]+'\t'+opArray[-1]+"\n")
+#             self.window.memUtilization.AppendText("VSS:"+opArray[5]+'\tRSS:'+opArray[6]+'\t'+opArray[-1]+"\n")
+            times+=1
+            if times >= self.kindsNum:
+                times = 0
+                i    += 1
+#             print opArray[-1],self.CPUData[self.kvActivities[opArray[-1]]]
             if self.timeToQuit.isSet():
                 break
+            
+    def drawCPUPlot(self):
+        lines = []
+        for index in range(self.kindsNum):
+            line= plot.PolyLine(self.CPUData[index], colour='red', width=1)
+            lines.append(line)
+        gc= plot.PlotGraphics(lines, 'CPU Utilization', 'time/s', 'utilization/%')
+        self.window.CPUplotter.Draw(gc)
+        
+    def drawMEMPlot(self):
+        lines = []
+        for index in range(self.kindsNum):
+            line= plot.PolyLine(self.MEMData[index], colour='red', width=1)
+            lines.append(line)
+        gc= plot.PlotGraphics(lines, 'MEM Utilization', 'time/s', 'utilization/KB')
+        self.window.MEMplotter.Draw(gc)
 
 class listenTouchThread(threading.Thread):
     def __init__(self, window):
@@ -223,7 +262,7 @@ class mainFrame(wx.Frame):
         notebook.AddPage(logTool(notebook), "logTool")
         notebook.AddPage(appiumTool(notebook), "appiumTool")
         notebook.AddPage(recordeTool(notebook), "recordeTool")
-        notebook.AddPage(performanceTestTool(notebook), "performanceTest")
+        notebook.AddPage(performanceTestTool(notebook), "Monitor")
         p_sizer = wx.BoxSizer(wx.HORIZONTAL)
         p_sizer.Add(notebook, 1, wx.EXPAND | wx.ALL, 7) 
         self.panel2.SetSizer(p_sizer)
@@ -264,29 +303,51 @@ class performanceTestTool(wx.Panel):
         
         #--------- BTN ----------
         self.getCurPackagenameBtn = wx.Button(self, -1, "get current packagename")
-        self.startMonitorBtn       = wx.Button(self, -1, "start listen")
+        self.startMonitorBtn      = wx.Button(self, -1, "start listen")
+        self.updateBtn            = wx.Button(self, -1, "update")
         
         #--------- TEXT ---------
         self.packagenameText = wx.TextCtrl(self, -1, size=(180,28))
-        self.cpuUtilization  = wx.TextCtrl(self, -1, size=(250,300), style=wx.TE_MULTILINE)
-        self.memUtilization  = wx.TextCtrl(self, -1, size=(440,300), style=wx.TE_MULTILINE)
+#         self.cpuUtilization  = wx.TextCtrl(self, -1, size=(250,300), style=wx.TE_MULTILINE)
+#         self.memUtilization  = wx.TextCtrl(self, -1, size=(440,300), style=wx.TE_MULTILINE)
         
+        #--------- plot ---------
+        self.CPUplotter = plot.PlotCanvas(self)
+        self.CPUplotter.SetInitialSize(size=(600,170))
+        self.MEMplotter = plot.PlotCanvas(self)
+        self.MEMplotter.SetInitialSize(size=(600,170))
+        data= [[0,0]]
+        line= plot.PolyLine(data, colour='red', width=1)
+  
+        gc= plot.PlotGraphics([line], 'CPU Utilization', 'time/s', 'utilization/%')
+        gc2= plot.PlotGraphics([line], 'MEM Utilization', 'time/s', 'utilization/KB')
+        self.CPUplotter.Draw(gc)
+        self.MEMplotter.Draw(gc2)
         #--------- BIND ---------
         self.getCurPackagenameBtn.Bind(wx.EVT_BUTTON, self.getCurPackagename)
         self.startMonitorBtn.Bind(wx.EVT_BUTTON, self.startMonitor)
+#         self.updateBtn.Bind(wx.EVT_BUTTON, self.draw)
         
         #--------- sizer --------
         line1_sizer = wx.BoxSizer(wx.HORIZONTAL)
         line1_sizer.Add(self.getCurPackagenameBtn, 0, 0)
         line1_sizer.Add(self.packagenameText, 1, wx.EXPAND)
         line1_sizer.Add(self.startMonitorBtn, 0, 0)
-        
-        line2_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        line2_sizer.AddMany([(self.cpuUtilization, 0, wx.EXPAND), (self.memUtilization, 0, wx.EXPAND)])
-        
+        line1_sizer.Add(self.updateBtn, 0, 0)
+#         
+#         line2_sizer = wx.BoxSizer(wx.HORIZONTAL)
+#         line2_sizer.AddMany([(self.cpuUtilization, 0, wx.EXPAND), (self.memUtilization, 0, wx.EXPAND)])
+#         
         sizer = wx.BoxSizer(wx.VERTICAL)
-        sizer.AddMany([line1_sizer, line2_sizer])
+        sizer.AddMany([line1_sizer, self.CPUplotter, self.MEMplotter])
         self.SetSizer(sizer)
+        
+#     def draw(self,evt):
+#         data2= [[1, 20], [2, 15], [3,20], [4, -10],[5,1]]
+#         line= plot.PolyLine(data2, colour='red', width=1)
+#   
+#         gc= plot.PlotGraphics([line], 'CPU Utilization', 'x', 'y')
+#         self.plotter.Draw(gc)
         
     def getCurPackagename(self, evt):
         cmd = "adb shell \"dumpsys window windows | grep -E 'mFocusedApp'\""

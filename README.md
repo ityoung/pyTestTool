@@ -18,7 +18,7 @@
 4. interprete the operation file to a certain language
 5. playback
 
-######page 4 - **performance testing**:
+######page 4 - **monitor**:
 1. get CPU info
 2. get Memory info
 3. get flow(u/d) info
@@ -26,7 +26,7 @@
 5. enter packagename and do 123
 6. draw broken line graph
 7. auto-analysis the result
-8. test APP run-up time
+~~8. test APP run-up time~~(keep to other pages)
 
 ___
 
@@ -61,6 +61,7 @@ ___
    * use 'os.system()', but shows many consoles(caused by appium calling adb.exe) and still cannot figure out how to solve this.(5-24)
 5. 
    * finished with "wx.html.HtmlWindow", however, that module cannot parse CSS/JS. Maybe I should find some more effective method when whole work done.(5-25)
+   * "wx.html2.WebView" module can solve that problem, work on it later. **unfinished.**(5-31)
    
 
 ######page 3:
@@ -83,4 +84,11 @@ ___
 2. 
    * get Memory info(5-30)<br>
    * with "adb shell top | grep packagename" command, and str.split() to get certain value.(5-30)
-
+3.
+   * __unfinished__
+4.
+   * done.(5-30)
+5.
+   * now work well on fun.1 and fun.2(5-30)
+6.
+   * "wx.lib.plot" is working. and now can draw CUP/MEM utilization graph. if one app has more than one activity, it can draw serveral lines. the two-dimensional array really took much of my time.(5-31)
