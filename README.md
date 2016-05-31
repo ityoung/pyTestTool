@@ -58,7 +58,7 @@ ___
    * use wx.FileDialog to choose script path and show in TextCtrl.(5-24)
 4.
    * run script with function ~~'execfile'~~, and warning when path empty. (failed, cuz when execute script, the path which script imports is complicated to add.)(5-24)<br>
-   * use 'os.system()', but shows many consoles(caused by appium calling adb.exe) and still cannot figure out how to solve this.(5-24)<br>
+   * use 'os.system()', but shows many consoles(caused by appium calling adb.exe) and still cannot figure out how to solve this.(5-24)
 5.
    * finished with "wx.html.HtmlWindow", however, that module cannot parse CSS/JS. Maybe I should find some more effective method when whole work done.(5-25)
 
@@ -80,5 +80,6 @@ ___
 1. 
    * get CPU info(5-30)
 2. 
-   * get Memory info(5-30)
+   * get Memory info(5-30)<br>
+   * with "adb shell top | grep packagename" command, and str.split() to get certain value.(5-30)
 
