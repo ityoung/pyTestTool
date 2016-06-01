@@ -21,12 +21,12 @@
 ######page 4 - **monitor**:
 1. get CPU info
 2. get Memory info
-3. get flow(u/d) info
+3. get flow(send/recieve) info
 4. get current app packagename
 5. enter packagename and do 123
 6. draw broken line graph
 7. auto-analysis the result
-~~8. test APP run-up time~~(keep to other pages)
+8. ~~test APP run-up time~~(keep to other pages)
 
 ___
 
@@ -85,10 +85,18 @@ ___
    * get Memory info(5-30)<br>
    * with "adb shell top | grep packagename" command, and str.split() to get certain value.(5-30)
 3.
-   * __unfinished__
+   * get PID with command "adb shell ps|grep packagename"<br>
+   * get flow with command ~~'adb shell cat /proc/"+Pid+"/net/dev"'~~, while that can only get flow utilization of all applications.<br>
+   * decide to get UID first with command "adb shell cat /proc/<pid>/status", and get the flow of that uid's process with command"adb shell cat /proc/net/xt_qtaguid/stats | grep uid"<br>
+   * rx_bytes refer to recieved flow and tx_bytes refer to sent.
+   * dive 1000 to change flow from b to kb
+   * delete first value, and use different color to make graph more intuitional.(6-1)
 4.
    * done.(5-30)
 5.
-   * now work well on fun.1 and fun.2(5-30)
+   * now work well on fun.1 and fun.2(5-30)<br>
+   * when show flow plot, the CPU/MEM will delay about 10 second, and still confused me.(6-1)
 6.
    * "wx.lib.plot" is working. and now can draw CUP/MEM utilization graph. if one app has more than one activity, it can draw serveral lines. the two-dimensional array really took much of my time.(5-31)
+7.
+   * __unfinished__

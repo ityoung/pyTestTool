@@ -7,6 +7,64 @@ import subprocess
 import time
 import wx.lib.plot as plot
 
+class getFlowThread(threading.Thread):
+    def __init__(self, window):
+        threading.Thread.__init__(self)
+        self.window     = window
+        self.packagename = self.window.packagename
+        self.timeToQuit = threading.Event()
+        self.timeToQuit.clear()
+        self.bytes = [[],[]]
+        
+    def stop(self):
+        self.timeToQuit.set()
+        
+    def getPID(self):
+        cmd = 'adb shell "ps|grep '+self.packagename+'"'
+        op = os.popen(cmd).readline()
+        ops = op.split()
+        return ops[1]
+    
+    def getUID(self):        
+        pid = self.getPID()
+        cmd = 'adb shell cat /proc/'+pid+'/status'
+        op  = os.popen(cmd)
+        opr = op.readline()
+        while 'Uid' not in opr:
+            opr = op.readline()
+        ops = opr.split()
+        return ops[1]
+    
+    def drawFlowPlot(self):
+        line_rx_bytes = plot.PolyLine(self.bytes[0], colour='red', width=1)
+        line_tx_bytes = plot.PolyLine(self.bytes[1], colour='green', width=1)
+        gc= plot.PlotGraphics([line_rx_bytes, line_tx_bytes], 'Flow Utilization', 'time/s', 'utilization/b/s')
+        self.window.Flowplotter.Draw(gc)
+         
+    def run(self):
+        uid = self.getUID()
+        cmd = 'adb shell "cat /proc/net/xt_qtaguid/stats | grep '+uid+'"'
+        i = 0
+        while True:
+            rx_bytes = 0
+            tx_bytes = 0
+            op  = os.popen(cmd)
+            opr = op.readline()
+            while '0' in opr:
+                ops = opr.split()
+                rx_bytes += int(ops[5])
+                tx_bytes += int(ops[7])
+                opr = op.readline()
+            if i == 0:
+                self.rx_kB = rx_bytes/1000
+                self.tx_kB = tx_bytes/1000
+            self.bytes[0].append([i, rx_bytes/1000-self.rx_kB])
+            self.bytes[1].append([i, tx_bytes/1000-self.tx_kB])
+            i+=1
+            self.drawFlowPlot()
+            if self.timeToQuit.isSet():
+                break
+
 class monitorPerformanceThread(threading.Thread):
     def __init__(self, window):
         threading.Thread.__init__(self)
@@ -23,13 +81,11 @@ class monitorPerformanceThread(threading.Thread):
     def stop(self):
         self.fstart.terminate()
         self.timeToQuit.set()
-        
+
     def run(self):
         cmd = 'adb shell "top -n 1 |grep "'+self.packagename+'"'
         kindsNum = os.popen(cmd).readlines()
         self.kindsNum=len(kindsNum)
-#         self.window.cpuUtilization.Clear()
-#         self.window.memUtilization.Clear()
         self.fstart = subprocess.Popen(self.cmd+self.packagename+'"', 
                                        stdin=subprocess.PIPE, 
                                        stdout=subprocess.PIPE, 
@@ -50,8 +106,6 @@ class monitorPerformanceThread(threading.Thread):
                                         [i,opArray[6].strip("K")])
             self.drawCPUPlot()
             self.drawMEMPlot()
-#             self.window.cpuUtilization.AppendText(opArray[2]+'\t'+opArray[-1]+"\n")
-#             self.window.memUtilization.AppendText("VSS:"+opArray[5]+'\tRSS:'+opArray[6]+'\t'+opArray[-1]+"\n")
             times+=1
             if times >= self.kindsNum:
                 times = 0
@@ -304,50 +358,39 @@ class performanceTestTool(wx.Panel):
         #--------- BTN ----------
         self.getCurPackagenameBtn = wx.Button(self, -1, "get current packagename")
         self.startMonitorBtn      = wx.Button(self, -1, "start listen")
-        self.updateBtn            = wx.Button(self, -1, "update")
         
         #--------- TEXT ---------
         self.packagenameText = wx.TextCtrl(self, -1, size=(180,28))
-#         self.cpuUtilization  = wx.TextCtrl(self, -1, size=(250,300), style=wx.TE_MULTILINE)
-#         self.memUtilization  = wx.TextCtrl(self, -1, size=(440,300), style=wx.TE_MULTILINE)
         
         #--------- plot ---------
         self.CPUplotter = plot.PlotCanvas(self)
         self.CPUplotter.SetInitialSize(size=(600,170))
         self.MEMplotter = plot.PlotCanvas(self)
         self.MEMplotter.SetInitialSize(size=(600,170))
+        self.Flowplotter = plot.PlotCanvas(self)
+        self.Flowplotter.SetInitialSize(size=(600,170))
+        
         data= [[0,0]]
         line= plot.PolyLine(data, colour='red', width=1)
-  
         gc= plot.PlotGraphics([line], 'CPU Utilization', 'time/s', 'utilization/%')
         gc2= plot.PlotGraphics([line], 'MEM Utilization', 'time/s', 'utilization/KB')
+        gc3= plot.PlotGraphics([line], 'Flow Utilization', 'time/s', 'utilization/kb')
         self.CPUplotter.Draw(gc)
         self.MEMplotter.Draw(gc2)
+        self.Flowplotter.Draw(gc3)
         #--------- BIND ---------
         self.getCurPackagenameBtn.Bind(wx.EVT_BUTTON, self.getCurPackagename)
         self.startMonitorBtn.Bind(wx.EVT_BUTTON, self.startMonitor)
-#         self.updateBtn.Bind(wx.EVT_BUTTON, self.draw)
         
         #--------- sizer --------
         line1_sizer = wx.BoxSizer(wx.HORIZONTAL)
         line1_sizer.Add(self.getCurPackagenameBtn, 0, 0)
         line1_sizer.Add(self.packagenameText, 1, wx.EXPAND)
         line1_sizer.Add(self.startMonitorBtn, 0, 0)
-        line1_sizer.Add(self.updateBtn, 0, 0)
-#         
-#         line2_sizer = wx.BoxSizer(wx.HORIZONTAL)
-#         line2_sizer.AddMany([(self.cpuUtilization, 0, wx.EXPAND), (self.memUtilization, 0, wx.EXPAND)])
-#         
-        sizer = wx.BoxSizer(wx.VERTICAL)
-        sizer.AddMany([line1_sizer, self.CPUplotter, self.MEMplotter])
-        self.SetSizer(sizer)
         
-#     def draw(self,evt):
-#         data2= [[1, 20], [2, 15], [3,20], [4, -10],[5,1]]
-#         line= plot.PolyLine(data2, colour='red', width=1)
-#   
-#         gc= plot.PlotGraphics([line], 'CPU Utilization', 'x', 'y')
-#         self.plotter.Draw(gc)
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        sizer.AddMany([line1_sizer, self.CPUplotter, self.MEMplotter, self.Flowplotter])
+        self.SetSizer(sizer)
         
     def getCurPackagename(self, evt):
         cmd = "adb shell \"dumpsys window windows | grep -E 'mFocusedApp'\""
@@ -363,11 +406,15 @@ class performanceTestTool(wx.Panel):
             self.fstart = monitorPerformanceThread(self)
             self.fstart.setDaemon(True)
             self.fstart.start()
+            self.fgetFlow = getFlowThread(self)
+            self.fgetFlow.setDaemon(True)
+            self.fgetFlow.start()
             self.startMonitorBtn.SetLabel("stop monitor")
             self.getCurPackagenameBtn.Disable()
             self.isMonitoring = True
         else:
             self.fstart.stop()
+            self.fgetFlow.stop()
             self.startMonitorBtn.SetLabel("start monitor")
             self.getCurPackagenameBtn.Enable()
             self.isMonitoring = False
