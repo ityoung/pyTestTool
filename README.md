@@ -26,7 +26,8 @@
 5. enter packagename and do 123
 6. draw broken line graph
 7. auto-analysis the result
-8. ~~test APP run-up time~~(keep to other pages)
+8. choose process/all of plot
+9. ~~test APP run-up time~~(keep to other pages)
 
 ___
 
@@ -45,7 +46,7 @@ ___
    * start and stop logcatting all, done(5-17)<br>
    * start and stop logcatting a certain app, defualt show current app's package name, done(5-17)<br>
    * now the software runs PERFECT! with the other days' work, plus multithread and subprocess, I finally make the logMessage print on screen Real-	Time and Non-Block!(5-19)<br>
-   * timestamp for filename, and doing save work. __unfinished__
+   * saving operator.(6-6)
 3. 
    * complete, still about 3.5 delay. Try multithread, which finally proves taking more time, and have to think about I/O lock, so just let it delay, may solve this when whole work done.(5-20)
 
@@ -100,3 +101,5 @@ ___
    * "wx.lib.plot" is working. and now can draw CUP/MEM utilization graph. if one app has more than one activity, it can draw serveral lines. the two-dimensional array really took much of my time.(5-31)
 7.
    * __unfinished__
+8.
+   * use wx.Choice.(6-6)

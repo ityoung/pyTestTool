@@ -87,11 +87,12 @@ class monitorPerformanceThread(threading.Thread):
         self.splitValue()
 
     def splitValue(self):
-        self.fstart = subprocess.Popen(self.cmd+self.packagename+'"', 
-                                       stdin=subprocess.PIPE, 
-                                       stdout=subprocess.PIPE, 
-                                       stderr=subprocess.PIPE, 
-                                       creationflags=0x08)
+        self.fstart = subprocess.Popen(
+           self.cmd+self.packagename+'"', 
+           stdin=subprocess.PIPE, 
+           stdout=subprocess.PIPE, 
+           stderr=subprocess.PIPE, 
+           creationflags=0x08)
         i = 0
         times = 0
         value = 0
@@ -128,16 +129,24 @@ class monitorPerformanceThread(threading.Thread):
             
     def drawCPUPlot(self, ps):
         lines = []
-        for index in range(self.kindsNum):
-            line= plot.PolyLine(self.CPUData[index], colour='red', width=1)
+        if ps=='All':
+            for index in range(self.kindsNum):
+                line= plot.PolyLine(self.CPUData[index], colour='red', width=1)
+                lines.append(line)
+        else:
+            line = plot.PolyLine(self.CPUData[self.kvActivities[ps]], colour='blue', width=1)
             lines.append(line)
         gc= plot.PlotGraphics(lines, 'CPU Utilization', 'time/s', 'utilization/%')
         self.window.CPUplotter.Draw(gc)
         
     def drawMEMPlot(self, ps):
         lines = []
-        for index in range(self.kindsNum):
-            line= plot.PolyLine(self.MEMData[index], colour='red', width=1)
+        if ps=='All':
+            for index in range(self.kindsNum):
+                line= plot.PolyLine(self.MEMData[index], colour='blue', width=1)
+                lines.append(line)
+        else:
+            line = plot.PolyLine(self.MEMData[self.kvActivities[ps]], colour='blue', width=1)
             lines.append(line)
         gc= plot.PlotGraphics(lines, 'MEM Utilization', 'time/s', 'utilization/KB')
         self.window.MEMplotter.Draw(gc)
@@ -374,7 +383,7 @@ class monitorTool(wx.Panel):
         
         #--------- Choice -------
         choiceInit = ["All"]
-        self.showChoice = wx.Choice(self, -1, choices=choiceInit, size=(180,40))
+        self.showChoice = wx.Choice(self, -1, choices=choiceInit, size=(180,28))
         self.showChoice.SetStringSelection("All")
         self.showChoice.Bind(wx.EVT_CHOICE, self.processChoose)
 #         self.showChoice.Hide()
@@ -575,10 +584,18 @@ class logTool(wx.Panel):
         self.logClearBtn.SetDefault()
         self.logCatAllBtn = wx.Button(self, -1, "logcat all")
         self.logCatSelectBtn = wx.Button(self, -1, "logcat select")
+        self.saveBtn = wx.Button(self, -1, "save log")
+        
+        #-------------- text
+        self.saveResult = wx.StaticText(self,-1,size=(180,28),style=wx.TOP)
+        
         btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
         btn_sizer.Add(self.logClearBtn,0,0)
         btn_sizer.Add(self.logCatAllBtn,0,0)
         btn_sizer.Add(self.logCatSelectBtn,0,0)
+        btn_sizer.Add(self.saveBtn,0,0)
+        btn_sizer.Add(self.saveResult, 0, 0)
+        
         
 #         self.logClearBtn.Disable()
 #         self.logCatAllBtn.Disable()
@@ -595,6 +612,21 @@ class logTool(wx.Panel):
         self.logClearBtn.Bind(wx.EVT_BUTTON, self.logClear)
         self.logCatAllBtn.Bind(wx.EVT_BUTTON, self.logCatAll)
         self.logCatSelectBtn.Bind(wx.EVT_BUTTON, self.logCatSelect)
+        self.saveBtn.Bind(wx.EVT_BUTTON, self.saveLog)
+        
+    def saveLog(self, evt):
+#             print fileDlg.GetPath()
+            if self.logMessageText.GetValue():
+                fileDlg = wx.FileDialog(self, wildcard='*.txt',style=wx.SAVE)
+                if fileDlg.ShowModal() == wx.ID_OK:
+                    fp = open(fileDlg.GetPath(), "w")
+                    fp.write(self.logMessageText.GetValue())
+                    fp.close()
+                    self.saveResult.SetLabel("saved!")
+            else:
+                wnDlg = wx.MessageDialog(self, "Log file is empty!\nPlease cat log first!", "Warning", style=wx.OK)
+                wnDlg.ShowModal()
+#             print self.logMessageText.GetValue()
         
     def logClear(self,even):
         dlg = wx.MessageDialog(None, 'Confirm clear old-log?',
