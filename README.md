@@ -62,7 +62,8 @@ ___
    * use 'os.system()', but shows many consoles(caused by appium calling adb.exe) and still cannot figure out how to solve this.(5-24)
 5. 
    * finished with "wx.html.HtmlWindow", however, that module cannot parse CSS/JS. Maybe I should find some more effective method when whole work done.(5-25)
-   * "wx.html2.WebView" module can solve that problem, work on it later. **unfinished.**(5-31)
+   * "wx.html2.WebView" module can solve that problem, work on it later. (5-31)
+   * finished.(6-7)
    
 
 ######page 3:
@@ -72,7 +73,7 @@ ___
    * show on screen(5-26)
    * still need some change.
 3. 
-   * save as A appropriate format file unfinished.
+   * save as A appropriate format file **unfinished**.
 4. 
    * interprete the operation file to "CMD"(5-27)
    * need to interprete it to run with appium.
@@ -85,21 +86,21 @@ ___
 2. 
    * get Memory info(5-30)<br>
    * with "adb shell top | grep packagename" command, and str.split() to get certain value.(5-30)
-3.
+3. 
    * get PID with command "adb shell ps|grep packagename"<br>
    * get flow with command ~~'adb shell cat /proc/"+Pid+"/net/dev"'~~, while that can only get flow utilization of all applications.<br>
    * decide to get UID first with command "adb shell cat /proc/<pid>/status", and get the flow of that uid's process with command"adb shell cat /proc/net/xt_qtaguid/stats | grep uid"<br>
    * rx_bytes refer to recieved flow and tx_bytes refer to sent.
    * dive 1000 to change flow from b to kb
    * delete first value, and use different color to make graph more intuitional.(6-1)
-4.
+4. 
    * done.(5-30)
-5.
+5. 
    * now work well on fun.1 and fun.2(5-30)<br>
    * when show flow plot, the CPU/MEM will delay about 10 second, and still confused me.(6-1)
-6.
+6. 
    * "wx.lib.plot" is working. and now can draw CUP/MEM utilization graph. if one app has more than one activity, it can draw serveral lines. the two-dimensional array really took much of my time.(5-31)
-7.
+7. 
    * __unfinished__
-8.
+8. 
    * use wx.Choice.(6-6)
