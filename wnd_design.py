@@ -1,5 +1,5 @@
 import wx
-import wx.html
+import wx.html2
 import os
 import re
 import threading
@@ -515,10 +515,10 @@ class appiumTool(wx.Panel):
         self.scriptPathStaticText = wx.StaticText(self, -1, "script path: ",style=wx.EXPAND)
         self.scriptPathText = wx.TextCtrl(self, -1, size=(180,28))
 #----------------- html ----------------
-        self.html = wx.html.HtmlWindow(self,size=(700, 600))
-        if "gtk2" in wx.PlatformInfo:
-            self.html.SetStandardFonts()
-        self.html.LoadFile(r"F:\mhome\mhome_test\test_result.html")
+        self.html = wx.html2.WebView.New(self,size=(700, 600))
+#         if "gtk2" in wx.PlatformInfo:
+#             self.html.SetStandardFonts()
+#         self.html.LoadURL("https://www.baidu.com")
 #         self.html.LoadPage("http://www.wxpython.org/docs/api/wx.html.HtmlWindow-class.html")
 #         self.html.SetBorders(20)
 #----------------- sizer ----------------
@@ -569,6 +569,7 @@ class appiumTool(wx.Panel):
             import sys
             sys.path.append(r"F:\mhome\mhome_test")
             os.system("python "+scriptpath+scriptPath)
+            self.html.LoadURL(r"F:\mhome\test_result.html")
         else:
             dlg = wx.MessageDialog(None,"warning!","Empty Path!",wx.OK|wx.ICON_WARNING)
             dlg.ShowModal()
@@ -617,7 +618,7 @@ class logTool(wx.Panel):
     def saveLog(self, evt):
 #             print fileDlg.GetPath()
             if self.logMessageText.GetValue():
-                fileDlg = wx.FileDialog(self, wildcard='*.txt',style=wx.SAVE)
+                fileDlg = wx.FileDialog(self, defaultFile="log1111",wildcard='*.txt',style=wx.SAVE)
                 if fileDlg.ShowModal() == wx.ID_OK:
                     fp = open(fileDlg.GetPath(), "w")
                     fp.write(self.logMessageText.GetValue())
