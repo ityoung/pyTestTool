@@ -1,5 +1,4 @@
 import wx
-import wx.html2
 import os
 import re
 import threading
@@ -195,13 +194,39 @@ class showLogThread(threading.Thread):
                 self.window.logMessageText.AppendText(output)
             if self.timeToQuit.isSet():
                 break
-                      
+         
+class getRunUpTimeThread(threading.Thread):
+    def __init__(self, window, times):
+        threading.Thread.__init__(self)
+        self.window = window
+        self.times  = int(times)
+        self.stopCMD = "adb shell am force-stop "+self.window.packageNameText.GetValue()
+        self.startCMD= "adb shell am start -W -n "+self.window.packageAndActivity
+    def run(self):
+        for i in range(self.times):
+            try:
+                os.popen(self.stopCMD)
+                time.sleep(5)
+            finally:
+                fp = os.popen(self.startCMD).readlines()
+                for ttt in fp:
+                    if ("TotalTime" in ttt) or ("Status: timeout" in ttt):
+                        self.window.resultText.AppendText("times("+str(i+1)+"): "+ttt)
+                print fp
+                time.sleep(5)
+        self.window.startBtn.Enable()
+                   
 class mainFrame(wx.Frame):
     def __init__(self, *args, **kwargs):
         wx.Frame.__init__(self, *args, **kwargs)
         icon = wx.Icon("E.png", wx.BITMAP_TYPE_PNG)  
         self.SetIcon(icon)
         self.SetSize((900,642))
+        menuBar = wx.MenuBar()
+        menu = wx.Menu()
+        about = menu.Append(-1, "about", "help text")
+        menuBar.Append(menu, "help")
+        self.SetMenuBar(menuBar)
         self.listenDevice = True
         global isConn
         isConn = False
@@ -246,16 +271,31 @@ class mainFrame(wx.Frame):
 #--------------- tab ------------------------
         notebook = wx.Notebook(self.panel2)
         notebook.AddPage(logTool(notebook), "logTool")
+        notebook.AddPage(runUpTime(notebook), "run-up time")
         notebook.AddPage(monitorTool(notebook), "Monitor")
         p_sizer = wx.BoxSizer(wx.HORIZONTAL)
         p_sizer.Add(notebook, 1, wx.EXPAND | wx.ALL, 7) 
         self.panel2.SetSizer(p_sizer)
          
     def copyPic(self, evt):
-        import pyperclip
-        pyperclip.copy("sss")
-        temp = pyperclip.paste()
-        print temp
+        from cStringIO import StringIO
+        import win32clipboard
+        from PIL import Image
+        
+        def copy_to_clipboard(clip_type, data):
+            win32clipboard.OpenClipboard()
+            win32clipboard.EmptyClipboard()
+            win32clipboard.SetClipboardData(clip_type, data)
+            win32clipboard.CloseClipboard()
+        
+        filepath = 'F:\sstemp.png'
+        image = Image.open(filepath)
+        output = StringIO()
+        image.convert("RGB").save(output, "BMP")
+        data = output.getvalue()[14:]
+        output.close()
+        
+        copy_to_clipboard(win32clipboard.CF_DIB, data)
          
 
     def savePic(self, evt):
@@ -372,6 +412,59 @@ class monitorTool(wx.Panel):
             self.getCurPackagenameBtn.Enable()
             self.isMonitoring = False
             
+class runUpTime(wx.Panel):
+    def __init__(self, parent):
+        wx.Panel.__init__(self, parent)
+        self.packageAndActivity = ""
+        
+        package = wx.StaticText(self, -1, "packagename:")
+        activity = wx.StaticText(self, -1, "Activity:")
+        times = wx.StaticText(self, -1, "times:")
+        
+        self.packageNameText = wx.TextCtrl(self, -1, size=(180,28))
+        self.activityText    = wx.TextCtrl(self, -1, size=(180,28))
+        self.timesText       = wx.TextCtrl(self, -1, size=(180,28))
+        self.resultText      = wx.TextCtrl(self, -1, size=(600,300),style=wx.TE_MULTILINE)
+        
+        self.getCurBtn = wx.Button(self, -1, "get current appInfo")
+        self.getCurBtn.Bind(wx.EVT_BUTTON, self.getCurrntApp)
+        self.startBtn = wx.Button(self, -1, "start")
+        self.startBtn.Bind(wx.EVT_BUTTON, self.startTest)
+        
+        line1_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        line1_sizer.Add(package,0,0)
+        line1_sizer.Add(self.packageNameText,0,0)
+        line2_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        line2_sizer.Add(activity,0,0)
+        line2_sizer.Add(self.activityText,0,0)
+        line2_sizer.Add(self.getCurBtn, 0, 0)
+        line3_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        line3_sizer.Add(times,0,0)
+        line3_sizer.Add(self.timesText, 0, 0)
+        line3_sizer.Add(self.startBtn, 0, 0)
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        sizer.AddMany([line1_sizer, line2_sizer, line3_sizer,self.resultText])
+        self.SetSizer(sizer)
+        
+    def startTest(self, evt):
+        self.resultText.Clear()
+        f = getRunUpTimeThread(self, self.timesText.GetValue())
+        f.setDaemon(True)
+        f.start()
+        self.startBtn.Disable()
+    
+    def getCurrntApp(self, evt):
+        getpackagename = "adb shell \"dumpsys window windows | grep -E 'mFocusedApp'\""
+        result = os.popen(getpackagename).readlines()
+        cur_pkg = re.findall('u0 .* ', result[0])
+#         print cur_pkg
+        cur_pkg[0] = cur_pkg[0].strip('u0 ')
+        self.packageAndActivity = cur_pkg[0].strip(' ')
+        pkgAndAct = self.packageAndActivity.split("/")
+#         print pkgAndAct
+        self.packageNameText.SetValue(pkgAndAct[0])
+        self.activityText.SetValue(pkgAndAct[1])
+
 class logTool(wx.Panel):
     def __init__(self, parent):
         wx.Panel.__init__(self, parent)
