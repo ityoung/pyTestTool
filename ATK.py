@@ -158,17 +158,15 @@ class checkDeviceThread(threading.Thread):
         self.timeToQuit.set()
     def run(self):
         global isConn
-        while 1:
+        while True:
             checkdevicecmd = "adb devices"
             deviceLine = os.popen(checkdevicecmd).readlines()
             if len(deviceLine)==2:
                 isConn = False
-                self.timeToQuit.wait(0.1)
-                wx.CallAfter(self.window.showDeviceInfo)
             else:
                 isConn = True
-                self.timeToQuit.wait(0.1)
-                wx.CallAfter(self.window.showDeviceInfo)
+            self.timeToQuit.wait(0.1)
+            wx.CallAfter(self.window.onConn)
             if self.timeToQuit.isSet():
                 break
          
@@ -219,14 +217,18 @@ class getRunUpTimeThread(threading.Thread):
 class mainFrame(wx.Frame):
     def __init__(self, *args, **kwargs):
         wx.Frame.__init__(self, *args, **kwargs)
-        icon = wx.Icon("E.png", wx.BITMAP_TYPE_PNG)  
+        icon = wx.Icon("A.png", wx.BITMAP_TYPE_PNG)  
         self.SetIcon(icon)
-        self.SetSize((900,642))
+        self.SetSize((900,652))
+        
+#-------------- MENU --------------
         menuBar = wx.MenuBar()
         menu = wx.Menu()
         about = menu.Append(-1, "about", "help text")
+        self.Bind(wx.EVT_MENU, self.createAboutDlg, about)
         menuBar.Append(menu, "help")
         self.SetMenuBar(menuBar)
+        
         self.listenDevice = True
         global isConn
         isConn = False
@@ -234,7 +236,7 @@ class mainFrame(wx.Frame):
         self.cmd2 = "adb pull /sdcard/sstemp.png F://"
 #         self.isUpdateScreen = False
         self.w = 270
-        self.h = 490
+        self.h = 480
         
 #--------------- split window ---------------
         self.sp     = wx.SplitterWindow(self, id=-1)
@@ -251,9 +253,13 @@ class mainFrame(wx.Frame):
         thread.start()              #check devices until die
         self.deviceInfoText.SetEditable(False)
         
+#--------------- btn ---------------
         self.refleshBtn = wx.Button(self.panel1, -1, "Refresh")
         self.saveBtn = wx.Button(self.panel1, -1, "Save")
         self.copyBtn = wx.Button(self.panel1, -1, "Copy")
+        self.refleshBtn.Disable()
+        self.saveBtn.Disable()
+        self.copyBtn.Disable()
         
         self.refleshBtn.SetDefault()
         self.refleshBtn.Bind(wx.EVT_BUTTON, self.refleshScreen)
@@ -277,26 +283,39 @@ class mainFrame(wx.Frame):
         p_sizer.Add(notebook, 1, wx.EXPAND | wx.ALL, 7) 
         self.panel2.SetSizer(p_sizer)
          
+    def createAboutDlg(self, evt):
+        dlg_data = "Android Test Kit (v1.0.0)\nBuilt:\n\n64-bit AMD64\n\nSend feedback to: ityoung@126.com"
+        about = wx.MessageDialog(None, dlg_data, "About iATK",style=wx.OK_DEFAULT|wx.ICON_NONE)
+        about.Center()
+        about.ShowModal()
+#     def copyPic(self,evt):
+#         pic_path = "F:\sstemp.png"
+#         pic_data = wx.CustomDataObject(pic_path)
+#         wx.TheClipboard.Open()
+#         wx.TheClipboard.SetData(pic_data)
+#         wx.TheClipboard.Close()
     def copyPic(self, evt):
         from cStringIO import StringIO
         import win32clipboard
         from PIL import Image
-        
+         
         def copy_to_clipboard(clip_type, data):
             win32clipboard.OpenClipboard()
             win32clipboard.EmptyClipboard()
             win32clipboard.SetClipboardData(clip_type, data)
             win32clipboard.CloseClipboard()
-        
+         
         filepath = 'F:\sstemp.png'
         image = Image.open(filepath)
         output = StringIO()
         image.convert("RGB").save(output, "BMP")
         data = output.getvalue()[14:]
         output.close()
-        
-        copy_to_clipboard(win32clipboard.CF_DIB, data)
          
+        copy_to_clipboard(win32clipboard.CF_DIB, data)
+        
+        successDlg = wx.MessageDialog(self, "Copy success!", style=wx.OK_DEFAULT|wx.ICON_NONE)
+        successDlg.ShowModal()
 
     def savePic(self, evt):
         import shutil
@@ -304,11 +323,13 @@ class mainFrame(wx.Frame):
             fileDlg = wx.FileDialog(self, defaultFile="screenshot-"+time.strftime('%Y%m%d%H%M%S',time.localtime()),wildcard='*.png',style=wx.SAVE)
             if fileDlg.ShowModal() == wx.ID_OK:
                 shutil.copy("F:\sstemp.png", fileDlg.GetPath())
+                successDlg = wx.MessageDialog(self, "Save success!", style=wx.OK_DEFAULT|wx.ICON_NONE)
+                successDlg.ShowModal()
         except:
             wnDlg = wx.MessageDialog(self, "Please get screen capture first!", "Warning", style=wx.OK)
             wnDlg.ShowModal()
          
-    def showDeviceInfo(self):
+    def onConn(self):
         if isConn == True and self.listenDevice == True:
             self.listenDevice = False
             self.deviceInfoText.SetValue("Connected!\n")
@@ -317,16 +338,24 @@ class mainFrame(wx.Frame):
             device_mf = re.findall('ro.product.manufacturer=(.*)', deviceinfo)
             device_model = re.findall('ro.product.model=(.*)', deviceinfo)
             self.deviceInfoText.AppendText("manufacturer:"+device_mf[0]+"\ndevice model:"+device_model[0])
+            self.refleshBtn.Enable()
         elif isConn == False and self.listenDevice == False:
             self.listenDevice = True
             self.deviceInfoText.SetValue("Disconnected!")
+            self.refleshBtn.Disable()
  
     def refleshScreen(self,evt):
+        self.refleshBtn.Disable()
+        self.refleshBtn.SetLabel("Refleshing...")
         os.system(self.cmd1)
         os.system(self.cmd2)
         image2 = wx.Image("F://sstemp.png", wx.BITMAP_TYPE_PNG, index=-1)
         image = image2.Scale(self.w,self.h)
         self.bmp = wx.StaticBitmap(self.panel1, -1, wx.BitmapFromImage(image),pos=(5, 99), size=(self.w,self.h+10))
+        self.refleshBtn.Enable()
+        self.refleshBtn.SetLabel("Reflesh")
+        self.copyBtn.Enable()
+        self.saveBtn.Enable()
              
 class monitorTool(wx.Panel):
     def __init__(self, parent):
@@ -381,6 +410,16 @@ class monitorTool(wx.Panel):
         sizer.AddMany([line1_sizer, self.CPUplotter, self.MEMplotter, self.Flowplotter])
         self.SetSizer(sizer)
         
+        thread = checkDeviceThread(self)
+        thread.setDaemon(True)      #terminate child thread when main thread ends.
+        thread.start()              #check devices until die
+        
+    def onConn(self):
+        if isConn == True:
+            self.getCurPackagenameBtn.Enable()
+        else:
+            self.getCurPackagenameBtn.Disable()
+        
     def processChoose(self, evt):
         self.processSelection = self.showChoice.GetString(self.showChoice.GetSelection())
         
@@ -417,9 +456,9 @@ class runUpTime(wx.Panel):
         wx.Panel.__init__(self, parent)
         self.packageAndActivity = ""
         
-        package = wx.StaticText(self, -1, "packagename:")
-        activity = wx.StaticText(self, -1, "Activity:")
-        times = wx.StaticText(self, -1, "times:")
+        package = wx.StaticText(self, -1, "packagename:", size=(100,20),style=wx.TE_CENTER)
+        activity = wx.StaticText(self, -1, "Activity:", size=(100,20),style=wx.TE_CENTER)
+        times = wx.StaticText(self, -1, "times:", size=(100,20),style=wx.TE_CENTER)
         
         self.packageNameText = wx.TextCtrl(self, -1, size=(180,28))
         self.activityText    = wx.TextCtrl(self, -1, size=(180,28))
@@ -430,6 +469,7 @@ class runUpTime(wx.Panel):
         self.getCurBtn.Bind(wx.EVT_BUTTON, self.getCurrntApp)
         self.startBtn = wx.Button(self, -1, "start")
         self.startBtn.Bind(wx.EVT_BUTTON, self.startTest)
+        self.startBtn.Disable()
         
         line1_sizer = wx.BoxSizer(wx.HORIZONTAL)
         line1_sizer.Add(package,0,0)
@@ -441,17 +481,37 @@ class runUpTime(wx.Panel):
         line3_sizer = wx.BoxSizer(wx.HORIZONTAL)
         line3_sizer.Add(times,0,0)
         line3_sizer.Add(self.timesText, 0, 0)
-        line3_sizer.Add(self.startBtn, 0, 0)
+        line3_sizer.Add(self.startBtn, 0, 0)        
         sizer = wx.BoxSizer(wx.VERTICAL)
-        sizer.AddMany([line1_sizer, line2_sizer, line3_sizer,self.resultText])
+        sizer.AddMany([line1_sizer, line2_sizer, line3_sizer])
+        sizer.Add(self.resultText,1,wx.EXPAND)
         self.SetSizer(sizer)
         
+        thread = checkDeviceThread(self)
+        thread.setDaemon(True)      #terminate child thread when main thread ends.
+        thread.start()              #check devices until die
+        
+    def onConn(self):
+        if isConn == True:
+            self.getCurBtn.Enable()
+        else:
+            self.getCurBtn.Disable()
+            self.startBtn.Disable()
+            self.packageNameText.Clear()
+            self.activityText.Clear()
+            self.timesText.Clear()
+        
     def startTest(self, evt):
-        self.resultText.Clear()
-        f = getRunUpTimeThread(self, self.timesText.GetValue())
-        f.setDaemon(True)
-        f.start()
-        self.startBtn.Disable()
+        if self.timesText.GetValue():
+            self.resultText.Clear()
+            f = getRunUpTimeThread(self, self.timesText.GetValue())
+            f.setDaemon(True)
+            f.start()
+            self.startBtn.Disable()
+        else:
+            dlg = wx.MessageDialog(self, "Please enter the times!","warning", style=wx.OK_DEFAULT|wx.ICON_WARNING)
+            dlg.ShowModal()
+            
     
     def getCurrntApp(self, evt):
         getpackagename = "adb shell \"dumpsys window windows | grep -E 'mFocusedApp'\""
@@ -464,6 +524,7 @@ class runUpTime(wx.Panel):
 #         print pkgAndAct
         self.packageNameText.SetValue(pkgAndAct[0])
         self.activityText.SetValue(pkgAndAct[1])
+        self.startBtn.Enable()
 
 class logTool(wx.Panel):
     def __init__(self, parent):
@@ -502,7 +563,7 @@ class logTool(wx.Panel):
         
         sizer = wx.BoxSizer(wx.VERTICAL)
         sizer.Add(btn_sizer, 0, 0)
-        sizer.Add(self.logMessageText,0,0)
+        sizer.Add(self.logMessageText,1,wx.EXPAND)
         self.SetSizer(sizer)
         #-------------- bind --------------------
         self.logClearBtn.Bind(wx.EVT_BUTTON, self.logClear)
@@ -510,6 +571,21 @@ class logTool(wx.Panel):
         self.logCatSelectBtn.Bind(wx.EVT_BUTTON, self.logCatSelect)
         self.levelChoice.Bind(wx.EVT_CHOICE, self.changeLevel)
         self.saveBtn.Bind(wx.EVT_BUTTON, self.saveLog)
+        
+        self.thread = checkDeviceThread(self)
+        self.thread.setDaemon(True)      #terminate child thread when main thread ends.
+        self.thread.start()              #check devices until die
+        
+    def onConn(self):
+        if isConn == True:
+            if not self.isCatting:
+                self.logClearBtn.Enable()
+                self.logCatAllBtn.Enable()
+                self.logCatSelectBtn.Enable()
+        else:
+            self.logClearBtn.Disable()
+            self.logCatAllBtn.Disable()
+            self.logCatSelectBtn.Disable()
         
     def changeLevel(self, evt):
         self.logLevel = self.levelChoice.GetString(self.levelChoice.GetSelection())[0]
@@ -546,12 +622,18 @@ class logTool(wx.Panel):
             self.flogcat = showLogThread(self, cmd)
             self.flogcat.setDaemon(True)
             self.flogcat.start()
+            self.thread.stop()
+            self.logClearBtn.Disable()
+            self.logCatSelectBtn.Disable()
         else:
             self.isCatting = False
             self.logCatAllBtn.SetLabel("logcat all")
             self.logClearBtn.Enable()
             self.logCatSelectBtn.Enable()
             self.flogcat.stop()
+            self.thread.start()
+            self.logClearBtn.Enable()
+            self.logCatSelectBtn.Enable()
             
     def logCatSelect(self,even):
         if self.isCatting == False:
@@ -574,6 +656,9 @@ class logTool(wx.Panel):
                 self.logCatAllBtn.Disable()
                 self.flogcat.setDaemon(True)
                 self.flogcat.start()
+#                 self.thread.stop()
+                self.logClearBtn.Disable()
+                self.logCatAllBtn.Disable()
         else:
             self.packageName=""
             self.isCatting = False
@@ -581,8 +666,11 @@ class logTool(wx.Panel):
             self.logClearBtn.Enable()
             self.logCatAllBtn.Enable()
             self.flogcat.stop()
+#             self.thread.start()
+            self.logClearBtn.Enable()
+            self.logCatAllBtn.Enable()
 
 app = wx.App()
-frame = mainFrame(None,title="Easy Test for Android")
+frame = mainFrame(None,title="Android Test Kit")
 frame.Show()
 app.MainLoop()
