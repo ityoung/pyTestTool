@@ -131,7 +131,7 @@ class monitorPerformanceThread(threading.Thread):
                 line= plot.PolyLine(self.CPUData[index], colour='red', width=1)
                 lines.append(line)
         else:
-            line = plot.PolyLine(self.CPUData[self.kvActivities[ps]], colour='blue', width=1)
+            line = plot.PolyLine(self.CPUData[self.kvActivities[ps]], colour='red', width=1)
             lines.append(line)
         gc= plot.PlotGraphics(lines, 'CPU Utilization', 'time/s', 'utilization/%')
         self.window.CPUplotter.Draw(gc)
