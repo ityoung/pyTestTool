@@ -10,7 +10,7 @@ class getFlowThread(threading.Thread):
     def __init__(self, window):
         threading.Thread.__init__(self)
         self.window     = window
-        self.packagename = self.window.packagename
+        self.packagename= self.window.packagename
         self.timeToQuit = threading.Event()
         self.timeToQuit.clear()
         self.bytes = [[],[]]
@@ -38,7 +38,8 @@ class getFlowThread(threading.Thread):
         line_rx_bytes = plot.PolyLine(self.bytes[0], colour='red', width=1)
         line_tx_bytes = plot.PolyLine(self.bytes[1], colour='green', width=1)
         gc= plot.PlotGraphics([line_rx_bytes, line_tx_bytes], 'Flow Utilization', 'time/s', 'utilization/kb')
-        self.window.Flowplotter.Draw(gc)
+        if isConn:
+            self.window.Flowplotter.Draw(gc)
          
     def run(self):
         uid = self.getUID()
@@ -105,6 +106,7 @@ class monitorPerformanceThread(threading.Thread):
                                         [i,opArray[2].strip("%")])
             self.MEMData[self.kvActivities[opArray[-1]]].append(\
                                         [i,opArray[6].strip("K")])
+            print opArray[-1]
             self.drawCPUPlot(self.window.processSelection)
             self.drawMEMPlot(self.window.processSelection)
             times+=1
@@ -166,9 +168,11 @@ class checkDeviceThread(threading.Thread):
             else:
                 isConn = True
             self.timeToQuit.wait(0.1)
-            wx.CallAfter(self.window.onConn)
             if self.timeToQuit.isSet():
                 break
+#             if logTool.IsBeingDeleted():
+#                 break
+            wx.CallAfter(self.window.onConn)
          
 class showLogThread(threading.Thread):
     def __init__(self, window, cmd):
@@ -210,7 +214,6 @@ class getRunUpTimeThread(threading.Thread):
                 for ttt in fp:
                     if ("TotalTime" in ttt) or ("Status: timeout" in ttt):
                         self.window.resultText.AppendText("times("+str(i+1)+"): "+ttt)
-                print fp
                 time.sleep(5)
         self.window.startBtn.Enable()
                    
@@ -220,6 +223,8 @@ class mainFrame(wx.Frame):
         icon = wx.Icon("A.png", wx.BITMAP_TYPE_PNG)  
         self.SetIcon(icon)
         self.SetSize((900,652))
+        
+        self.Bind(wx.EVT_CLOSE, self.OnClose)
         
 #-------------- MENU --------------
         menuBar = wx.MenuBar()
@@ -248,9 +253,10 @@ class mainFrame(wx.Frame):
 #--------------- device info ----------------        
         self.deviceInfoText  = wx.TextCtrl(self.panel1, -1,size=(285,70),style=wx.TE_MULTILINE|wx.TE_NO_VSCROLL)
 
-        thread = checkDeviceThread(self)
-        thread.setDaemon(True)      #terminate child thread when main thread ends.
-        thread.start()              #check devices until die
+        global thread_devInfo
+        thread_devInfo = checkDeviceThread(self)
+        thread_devInfo.setDaemon(True)      #terminate child thread when main thread ends.
+        thread_devInfo.start()              #check devices until die
         self.deviceInfoText.SetEditable(False)
         
 #--------------- btn ---------------
@@ -283,8 +289,18 @@ class mainFrame(wx.Frame):
         p_sizer.Add(notebook, 1, wx.EXPAND | wx.ALL, 7) 
         self.panel2.SetSizer(p_sizer)
          
+    def OnClose(self,evt):
+        thread_devInfo.stop()
+        thread_monitor.stop()
+        thread_runUpTime.stop()
+        thread_logTool.stop()
+        while True:
+            if not thread_devInfo.isAlive():
+                self.Destroy()
+                break
+    
     def createAboutDlg(self, evt):
-        dlg_data = "Android Test Kit (v1.0.0)\nBuilt:\n\n64-bit AMD64\n\nSend feedback to: ityoung@126.com"
+        dlg_data = "Android Test Kit (v1.0.1)\nBuilt: 2016-07-11\n\n64-bit AMD64\n\nSend feedback to: ityoung@126.com"
         about = wx.MessageDialog(None, dlg_data, "About iATK",style=wx.OK_DEFAULT|wx.ICON_NONE)
         about.Center()
         about.ShowModal()
@@ -336,8 +352,8 @@ class mainFrame(wx.Frame):
             getdeviceinfocmd = 'adb shell "cat /system/build.prop | grep \"product\""'
             deviceinfo = os.popen(getdeviceinfocmd).read()
             device_mf = re.findall('ro.product.manufacturer=(.*)', deviceinfo)
-            device_model = re.findall('ro.product.model=(.*)', deviceinfo)
-            self.deviceInfoText.AppendText("manufacturer:"+device_mf[0]+"\ndevice model:"+device_model[0])
+            device_pd = re.findall('ro.build.product=(.*)', deviceinfo)
+            self.deviceInfoText.AppendText("manufacturer:"+device_mf[0]+"\ndevice model:"+device_pd[0])
             self.refleshBtn.Enable()
         elif isConn == False and self.listenDevice == False:
             self.listenDevice = True
@@ -410,15 +426,21 @@ class monitorTool(wx.Panel):
         sizer.AddMany([line1_sizer, self.CPUplotter, self.MEMplotter, self.Flowplotter])
         self.SetSizer(sizer)
         
-        thread = checkDeviceThread(self)
-        thread.setDaemon(True)      #terminate child thread when main thread ends.
-        thread.start()              #check devices until die
+        global thread_monitor
+        thread_monitor = checkDeviceThread(self)
+        thread_monitor.setDaemon(True)      #terminate child thread when main thread ends.
+        thread_monitor.start()              #check devices until die
         
     def onConn(self):
         if isConn == True:
             self.getCurPackagenameBtn.Enable()
         else:
             self.getCurPackagenameBtn.Disable()
+            if self.isMonitoring:
+                self.fstart.stop()
+                self.fgetFlow.stop()
+                self.isMonitoring = False
+                self.startMonitorBtn.SetLabel("start monitor")
         
     def processChoose(self, evt):
         self.processSelection = self.showChoice.GetString(self.showChoice.GetSelection())
@@ -487,9 +509,10 @@ class runUpTime(wx.Panel):
         sizer.Add(self.resultText,1,wx.EXPAND)
         self.SetSizer(sizer)
         
-        thread = checkDeviceThread(self)
-        thread.setDaemon(True)      #terminate child thread when main thread ends.
-        thread.start()              #check devices until die
+        global thread_runUpTime
+        thread_runUpTime = checkDeviceThread(self)
+        thread_runUpTime.setDaemon(True)      #terminate child thread when main thread ends.
+        thread_runUpTime.start()              #check devices until die
         
     def onConn(self):
         if isConn == True:
@@ -515,16 +538,22 @@ class runUpTime(wx.Panel):
     
     def getCurrntApp(self, evt):
         getpackagename = "adb shell \"dumpsys window windows | grep -E 'mFocusedApp'\""
-        result = os.popen(getpackagename).readlines()
-        cur_pkg = re.findall('u0 .* ', result[0])
-#         print cur_pkg
-        cur_pkg[0] = cur_pkg[0].strip('u0 ')
-        self.packageAndActivity = cur_pkg[0].strip(' ')
-        pkgAndAct = self.packageAndActivity.split("/")
-#         print pkgAndAct
-        self.packageNameText.SetValue(pkgAndAct[0])
-        self.activityText.SetValue(pkgAndAct[1])
-        self.startBtn.Enable()
+        if isConn:
+#             try:
+            result = os.popen(getpackagename).readlines()
+            cur_pkg = re.findall('u0 .* ', result[0])
+#             except Exception as e:
+#                 print e
+#                 return
+#             cur_pkg = re.findall('u0 .* ', result[0])
+    #         print cur_pkg
+            cur_pkg[0] = cur_pkg[0].strip('u0 ')
+            self.packageAndActivity = cur_pkg[0].strip(' ')
+            pkgAndAct = self.packageAndActivity.split("/")
+    #         print pkgAndAct
+            self.packageNameText.SetValue(pkgAndAct[0])
+            self.activityText.SetValue(pkgAndAct[1])
+            self.startBtn.Enable()
 
 class logTool(wx.Panel):
     def __init__(self, parent):
@@ -572,9 +601,10 @@ class logTool(wx.Panel):
         self.levelChoice.Bind(wx.EVT_CHOICE, self.changeLevel)
         self.saveBtn.Bind(wx.EVT_BUTTON, self.saveLog)
         
-        self.thread = checkDeviceThread(self)
-        self.thread.setDaemon(True)      #terminate child thread when main thread ends.
-        self.thread.start()              #check devices until die
+        global thread_logTool
+        thread_logTool = checkDeviceThread(self)
+        thread_logTool.setDaemon(True)      #terminate child thread when main thread ends.
+        thread_logTool.start()              #check devices until die
         
     def onConn(self):
         if isConn == True:
@@ -583,9 +613,16 @@ class logTool(wx.Panel):
                 self.logCatAllBtn.Enable()
                 self.logCatSelectBtn.Enable()
         else:
+            try:
+                self.flogcat.stop()
+            except AttributeError:
+                pass
+            self.isCatting = False
             self.logClearBtn.Disable()
             self.logCatAllBtn.Disable()
             self.logCatSelectBtn.Disable()
+            self.logCatAllBtn.SetLabel("logcat all")
+            self.logCatSelectBtn.SetLabel("logcat select")
         
     def changeLevel(self, evt):
         self.logLevel = self.levelChoice.GetString(self.levelChoice.GetSelection())[0]
@@ -607,9 +644,12 @@ class logTool(wx.Panel):
                           'Warning', wx.YES_NO | wx.ICON_QUESTION)
         result = dlg.ShowModal()
         if result == wx.ID_YES:
-            cmd = "adb logcat -c"
-            os.system(cmd)
-            self.logMessageText.SetValue("Clear log successfully!")
+            if isConn:
+                cmd = "adb logcat -c"
+                os.system(cmd)
+                self.logMessageText.SetValue("Clear log successfully!")
+            else:
+                self.logMessageText.SetValue("Error! Your device disconnected!")
         dlg.Destroy()
             
     def logCatAll(self,even):
@@ -622,7 +662,7 @@ class logTool(wx.Panel):
             self.flogcat = showLogThread(self, cmd)
             self.flogcat.setDaemon(True)
             self.flogcat.start()
-            self.thread.stop()
+#             thread_logTool.stop()
             self.logClearBtn.Disable()
             self.logCatSelectBtn.Disable()
         else:
@@ -631,7 +671,7 @@ class logTool(wx.Panel):
             self.logClearBtn.Enable()
             self.logCatSelectBtn.Enable()
             self.flogcat.stop()
-            self.thread.start()
+#             thread_logTool.start()
             self.logClearBtn.Enable()
             self.logCatSelectBtn.Enable()
             
