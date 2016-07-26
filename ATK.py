@@ -300,7 +300,7 @@ class mainFrame(wx.Frame):
                 break
     
     def createAboutDlg(self, evt):
-        dlg_data = "Android Test Kit (v1.0.1)\nBuilt: 2016-07-11\n\n64-bit AMD64\n\nSend feedback to: ityoung@126.com"
+        dlg_data = "Android Test Kit (v1.0.1)\nBuilt: 2016-07-26\n\n64-bit AMD64\n\nSend feedback to: ityoung@126.com"
         about = wx.MessageDialog(None, dlg_data, "About iATK",style=wx.OK_DEFAULT|wx.ICON_NONE)
         about.Center()
         about.ShowModal()
@@ -576,7 +576,7 @@ class logTool(wx.Panel):
         self.levelChoice.SetStringSelection("V-Verbose")
         
         #-------------- text -------------------
-        self.saveResult = wx.StaticText(self,-1,size=(180,28),style=wx.TOP)
+        self.saveResult = wx.StaticText(self,-1,size=(180,28),style=wx.CENTRE)
         
         btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
         btn_sizer.Add(self.logClearBtn,0,0)
@@ -634,12 +634,13 @@ class logTool(wx.Panel):
                 fp = open(fileDlg.GetPath(), "w")
                 fp.write(self.logMessageText.GetValue())
                 fp.close()
-                self.saveResult.SetLabel("saved!")
+                self.saveResult.SetLabel("Saved!")
         else:
             wnDlg = wx.MessageDialog(self, "Log file is empty!\nPlease cat log first!", "Warning", style=wx.OK)
             wnDlg.ShowModal()
         
     def logClear(self,even):
+        self.saveResult.SetLabel("")
         dlg = wx.MessageDialog(None, 'Confirm clear old-log?',
                           'Warning', wx.YES_NO | wx.ICON_QUESTION)
         result = dlg.ShowModal()
@@ -653,6 +654,7 @@ class logTool(wx.Panel):
         dlg.Destroy()
             
     def logCatAll(self,even):
+        self.saveResult.SetLabel("")
         if self.isCatting == False:
             self.isCatting = True
             self.logCatAllBtn.SetLabel("Stop logcat")
@@ -676,6 +678,7 @@ class logTool(wx.Panel):
             self.logCatSelectBtn.Enable()
             
     def logCatSelect(self,even):
+        self.saveResult.SetLabel("")
         if self.isCatting == False:
             self.logMessageText.Clear()
             getpackagename = "adb shell \"dumpsys window windows | grep -E 'mFocusedApp'\""
