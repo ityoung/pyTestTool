@@ -5,6 +5,19 @@ import threading
 import subprocess
 import time
 import wx.lib.plot as plot
+import sys
+
+IS_WIN32 = 'win32' in str(sys.platform).lower()
+
+def subprocess_call(*args, **kwargs):
+    #also works for Popen. It creates a new *hidden* window, so it will work in frozen apps (.exe).
+    if IS_WIN32:
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags = subprocess.CREATE_NEW_CONSOLE | subprocess.STARTF_USESHOWWINDOW
+        startupinfo.wShowWindow = subprocess.SW_HIDE
+        kwargs['startupinfo'] = startupinfo
+    retcode = subprocess.call(*args, **kwargs)
+    return retcode
 
 class getFlowThread(threading.Thread):
     def __init__(self, window):
@@ -363,8 +376,8 @@ class mainFrame(wx.Frame):
     def refleshScreen(self,evt):
         self.refleshBtn.Disable()
         self.refleshBtn.SetLabel("Refleshing...")
-        os.system(self.cmd1)
-        os.system(self.cmd2)
+        subprocess_call(self.cmd1)
+        subprocess_call(self.cmd2)
         image2 = wx.Image("F://sstemp.png", wx.BITMAP_TYPE_PNG, index=-1)
         image = image2.Scale(self.w,self.h)
         self.bmp = wx.StaticBitmap(self.panel1, -1, wx.BitmapFromImage(image),pos=(5, 99), size=(self.w,self.h+10))
@@ -647,7 +660,7 @@ class logTool(wx.Panel):
         if result == wx.ID_YES:
             if isConn:
                 cmd = "adb logcat -c"
-                os.system(cmd)
+                subprocess_call(cmd)
                 self.logMessageText.SetValue("Clear log successfully!")
             else:
                 self.logMessageText.SetValue("Error! Your device disconnected!")
